@@ -1,18 +1,26 @@
-# [Project Name]
+# Dell InnovateDash 2026 @ SUTD
 
 > [One-line pitch: what it does and who it's for]
 
-Built at **[Hackathon Name]** — [Date] | Team: [Team Name]
+Built at **Dell InnovateDash 2026 @ SUTD** — 23 June 2026 | Team: Dilly Dell-E
 
 ---
 
+## Background
+
+Care Corner is a designated Integrated Community Care Programme (ICCP) provider in selected sub regions, supporting seniors with disabilities, functional decline, and complex care needs to age safely within the community.
+Although many health and social care resources exist, information about these services is fragmented across multiple websites, agencies, and service providers. Seniors and caregivers often struggle to know where to go, which service best fits their needs,
+and how to access support quickly, especially during care transitions.
+While technology can improve access to care, many seniors face difficulties navigating digital tools and may lack confidence that the services they find truly match their care needs.
+
 ## Problem
 
-[What problem are you solving? Keep it to 2-3 sentences.]
+How might we use technology to help seniors and caregivers confidently and independently navigate community care resources, while enabling seamless linkage to Care Corner or other ICCP providers when direct service or support is required?
 
 ## Solution
 
-[How does your project solve it? What's the core insight?]
+We proposed to create a client-centered care navigation application built on container orchestration (tapping on Kubernetes), with the AI subsystem ringed by responsible AI safeguards.
+
 
 ## Demo
 
