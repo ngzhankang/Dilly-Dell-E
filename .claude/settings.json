@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(make *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(tsc *)",
+      "Bash(npx tsc *)",
+      "Bash(eslint *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(cat .env)",
+      "Bash(cat *.env*)"
+    ]
+  }
+}
