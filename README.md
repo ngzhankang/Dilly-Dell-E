@@ -20,7 +20,7 @@ How might we use technology to help seniors and caregivers confidently and indep
 ## Solution
 
 We proposed to create a client-centered care navigation application built on container orchestration (tapping on Kubernetes), with the AI subsystem ringed by responsible AI safeguards.
-
+<img width="3360" height="3840" alt="care_navigation_v2_architecture" src="https://github.com/user-attachments/assets/e42a0abd-9e2b-42be-8d7a-12f83c24f540" />
 
 ## Demo
 
