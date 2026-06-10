@@ -23,6 +23,21 @@ services:
       timeout: 5s
       retries: 5
 
+  ml-service:
+    build:
+      context: ./ml
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml/models:/app/models
+    environment:
+      - MODEL_PATH=/app/models/model.onnx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   mongo_data:
   redis_data:

@@ -6,8 +6,42 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$ROOT_DIR"
 
-echo "=> Scaffolding frontend..."
-npm create vite@latest frontend -- --template react-ts
+# ── Frontend ────────────────────────────────────────────────────────────
+
+echo "=> Choose your frontend:"
+echo "   [1] Expo (React Native)    — recommended for mobile, no Xcode/Android Studio needed"
+echo "   [2] React Native CLI       — bare mobile, requires Xcode or Android Studio"
+echo "   [3] Vite (React web)       — web browser app"
+echo "   [4] Skip                   — backend only, add frontend manually later"
+read -r -p "   Selection [1-4]: " FRONTEND_CHOICE
+
+case "$FRONTEND_CHOICE" in
+  1)
+    echo ""
+    echo "=> Scaffolding Expo app..."
+    npx create-expo-app@latest mobile --template
+    grep -qxF 'mobile/' .gitignore || echo 'mobile/' >> .gitignore
+    ;;
+  2)
+    echo ""
+    echo "=> Scaffolding React Native CLI app..."
+    npx react-native@latest init mobile --template react-native-template-typescript
+    grep -qxF 'mobile/' .gitignore || echo 'mobile/' >> .gitignore
+    ;;
+  3)
+    echo ""
+    echo "=> Scaffolding Vite web app..."
+    npm create vite@latest frontend -- --template react-ts
+    ;;
+  4)
+    echo "   Skipping frontend scaffold."
+    ;;
+  *)
+    echo "   Invalid choice, skipping frontend."
+    ;;
+esac
+
+# ── Backend ─────────────────────────────────────────────────────────────
 
 echo ""
 echo "=> Scaffolding backend..."
@@ -35,6 +69,8 @@ npm pkg set scripts.build="tsc"
 npm pkg set scripts.lint="tsc --noEmit"
 cd "$ROOT_DIR"
 
+# ── Environment ─────────────────────────────────────────────────────────
+
 echo ""
 echo "=> Setting up .env..."
 if [ ! -f .env ]; then
@@ -46,6 +82,6 @@ fi
 
 echo ""
 echo "Done. Next steps:"
-echo "  1. Fill in .env with your secrets"
-echo "  2. Run: make docker-up   (start MongoDB + Redis)"
-echo "  3. Run: make dev         (start both servers)"
+echo "  1. Fill in .env (MONGO_URI, JWT_SECRET, ML_SERVICE_URL, etc.)"
+echo "  2. Run: make docker-up   (start MongoDB + Redis + ML service)"
+echo "  3. Run: make dev         (start backend + frontend)"

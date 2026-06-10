@@ -16,6 +16,14 @@ build/
 # Generated app folders — scaffolded by scripts/init.sh, not committed
 frontend/
 backend/
+mobile/
+
+# ML model weights — too large for git; bake into image or mount via volume
+ml/models/*.pt
+ml/models/*.bin
+ml/models/*.onnx
+ml/models/*.pkl
+ml/models/*.h5
 
 # Claude Code personal overrides — gitignored intentionally
 CLAUDE.local.md

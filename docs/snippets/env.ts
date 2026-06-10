@@ -5,9 +5,9 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3001),
   MONGO_URI: z.string().min(1),
+  REDIS_URL: z.string().min(1),
   JWT_SECRET: z.string().min(1),
-  VITE_API_URL: z.string().optional(),
-  ANTHROPIC_API_KEY: z.string().optional(),
+  ML_SERVICE_URL: z.string().url(),
 });
 
 const parsed = schema.safeParse(process.env);

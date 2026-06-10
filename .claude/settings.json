@@ -8,7 +8,15 @@
       "Bash(git diff *)",
       "Bash(tsc *)",
       "Bash(npx tsc *)",
-      "Bash(eslint *)"
+      "Bash(eslint *)",
+      "Bash(docker build *)",
+      "Bash(docker compose *)",
+      "Bash(docker tag *)",
+      "Bash(docker push *)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl delete *)",
+      "Bash(kubectl get *)",
+      "Bash(uvicorn *)"
     ],
     "deny": [
       "Bash(rm -rf *)",
