@@ -80,6 +80,7 @@ else
   echo "   .env already exists, skipping."
 fi
 
+sudo apt update && sudo apt install ffmpeg -y
 echo ""
 echo "Done. Next steps:"
 echo "  1. Fill in .env (MONGO_URI, JWT_SECRET, ML_SERVICE_URL, etc.)"

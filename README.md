@@ -119,7 +119,7 @@ cd ..
 
 # In a separate terminal — start Ollama
 ollama serve
-ollama pull aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct
+ollama pull aisingapore/Llama-SEA-LION-v3.5-8B-R
 
 # Run the ML service with hot reload
 make ml-dev   # → http://localhost:8000
