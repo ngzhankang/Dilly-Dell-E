@@ -11,10 +11,11 @@ from sentence_transformers import SentenceTransformer
 from .llm.api_client import AIAPIClient
 from .llm.fallback_client import FallbackLLMClient
 from .llm.ollama_client import OllamaClient
+from .model import predict as run_predict
 from .rag.loader import load_knowledge_base
 from .rag.pipeline import RAGPipeline
 from .rag.retriever import Retriever
-from .schemas import QueryRequest, QueryResponse
+from .schemas import PredictRequest, PredictResponse, QueryRequest, QueryResponse
 
 logging.basicConfig(level=logging.INFO)
 state: dict = {}
@@ -115,3 +116,11 @@ async def query_audio(file: UploadFile = File(...)):
         # Clean up temp file
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+@app.post("/predict", response_model=PredictResponse)
+async def predict(request: PredictRequest) -> PredictResponse:
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="text cannot be empty")
+    result = await run_predict(request.text, request.session_id)
+    return PredictResponse(**result)
