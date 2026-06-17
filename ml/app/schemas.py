@@ -37,8 +37,8 @@ class PredictResponse(BaseModel):
     text: str
     emotion: EmotionOut
     escalated: bool
-    escalation_severity: str | None
+    escalation_severity: Optional[str]
     strike_count: int
     intent: IntentFlags
     problem_classes: list[str]
-    special_case: str | None
+    special_case: Optional[str]

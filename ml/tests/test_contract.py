@@ -47,13 +47,13 @@ def mock_all_heavy_deps(monkeypatch):
     mock_esc_nli.predict.return_value = [[-2.0, 0.1, 1.5]]  # low distress
     monkeypatch.setattr("app.pipeline.escalation._nli_model", mock_esc_nli)
 
-    # --- Presidio: return no PII for simplicity ---
-    mock_analyzer = MagicMock()
-    mock_analyzer.analyze.return_value = []
-    mock_anonymizer = MagicMock()
-    mock_anonymizer.anonymize.return_value = MagicMock(text="I need help with medication costs")
-    monkeypatch.setattr("app.pipeline.redactor._analyzer", mock_analyzer)
-    monkeypatch.setattr("app.pipeline.redactor._anonymizer", mock_anonymizer)
+    # --- Presidio: mock redact() entirely to avoid presidio imports ---
+    from app.pipeline.models import RedactedText
+    def fake_redact(text):
+        return RedactedText(original=text, redacted=text, entities=[])
+    monkeypatch.setattr("app.pipeline.run.redact", fake_redact)
+    monkeypatch.setattr("app.pipeline.redactor._analyzer", MagicMock())
+    monkeypatch.setattr("app.pipeline.redactor._anonymizer", MagicMock())
 
     # --- LLM: return a fixed helpful response ---
     async def fake_llm(text, system_prompt_addon=""):
