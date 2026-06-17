@@ -19,5 +19,17 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: MODEL_PATH
-              value: /app/models/model.onnx
+            - name: OLLAMA_BASE_URL
+              value: http://ollama:11434
+            - name: OLLAMA_MODEL
+              value: aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct
+            - name: LLM_MODEL
+              value: sea-lion-v3-instruct
+            - name: LLM_API_BASE_URL
+              value: https://api.aisingapore.org/v1
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ml-secrets
+                  key: LLM_API_KEY
+                  optional: true

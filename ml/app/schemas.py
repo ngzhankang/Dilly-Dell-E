@@ -1,11 +1,16 @@
-from typing import Any, Optional
+from typing import Optional
 from pydantic import BaseModel
 
 
-class PredictRequest(BaseModel):
-    input: str  # Replace with your actual input fields
+class QueryRequest(BaseModel):
+    message: str
 
 
-class PredictResponse(BaseModel):
-    result: Any
-    confidence: Optional[float] = None
+class Source(BaseModel):
+    title: str
+    url: Optional[str] = None
+
+
+class QueryResponse(BaseModel):
+    answer: str
+    sources: list[Source]

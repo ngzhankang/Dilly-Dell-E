@@ -73,15 +73,17 @@ push-images:
 
 k8s-apply:
 	kubectl apply -f k8s/namespace.yaml
-	kubectl apply -f k8s/backend/
+	kubectl apply -f k8s/ollama/
 	kubectl apply -f k8s/ml-service/
+	kubectl apply -f k8s/backend/
 
 k8s-down:
-	kubectl delete -f k8s/ml-service/ --ignore-not-found
 	kubectl delete -f k8s/backend/ --ignore-not-found
+	kubectl delete -f k8s/ml-service/ --ignore-not-found
+	kubectl delete -f k8s/ollama/ --ignore-not-found
 	kubectl delete -f k8s/namespace.yaml --ignore-not-found
 
 # ── ML service (local Python, no Docker) ──────────────────────────────
 
 ml-dev:
-	@cd ml && uvicorn app.main:app --reload --port 8000
+	@cd ml && .venv/bin/uvicorn app.main:app --reload --port 8000

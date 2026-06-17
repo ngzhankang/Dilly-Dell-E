@@ -1,6 +1,6 @@
 # Dell InnovateDash 2026 @ SUTD
 
-> [One-line pitch: what it does and who it's for]
+> A client-centred care navigation app helping seniors and caregivers in Singapore find community care services — in English, Mandarin, Malay, or local dialect.
 
 Built at **Dell InnovateDash 2026 @ SUTD** — 23 June 2026 | Team: Dilly Dell-E
 
@@ -8,10 +8,9 @@ Built at **Dell InnovateDash 2026 @ SUTD** — 23 June 2026 | Team: Dilly Dell-E
 
 ## Background
 
-Care Corner is a designated Integrated Community Care Programme (ICCP) provider in selected sub regions, supporting seniors with disabilities, functional decline, and complex care needs to age safely within the community.
-Although many health and social care resources exist, information about these services is fragmented across multiple websites, agencies, and service providers. Seniors and caregivers often struggle to know where to go, which service best fits their needs,
-and how to access support quickly, especially during care transitions.
-While technology can improve access to care, many seniors face difficulties navigating digital tools and may lack confidence that the services they find truly match their care needs.
+Care Corner is a designated Integrated Community Care Programme (ICCP) provider supporting seniors with disabilities, functional decline, and complex care needs to age safely within the community.
+Information about health and social care services is fragmented across multiple websites, agencies, and providers. Seniors and caregivers often struggle to know where to go, which service fits their needs, and how to access support — especially during care transitions.
+Many seniors also lack digital confidence and may speak primarily in dialect, making English-only digital tools a barrier.
 
 ## Problem
 
@@ -19,7 +18,8 @@ How might we use technology to help seniors and caregivers confidently and indep
 
 ## Solution
 
-We proposed to create a client-centered care navigation application built on container orchestration (tapping on Kubernetes), with a custom ML model ringed by responsible AI safeguards.
+A care navigation app backed by a RAG pipeline grounded on Singapore care resource data, using SEA-LION — AI Singapore's Southeast Asian language model — to respond in the user's preferred language or dialect. The entire ML stack runs on Kubernetes, with an automatic fallback from the hosted AISG API to a self-hosted Ollama instance if the API is unavailable.
+
 <img width="3360" height="3840" alt="care_navigation_v2_architecture" src="https://github.com/user-attachments/assets/e42a0abd-9e2b-42be-8d7a-12f83c24f540" />
 
 ## Demo
@@ -30,13 +30,57 @@ We proposed to create a client-centered care navigation application built on con
 
 ## Tech Stack
 
-| Layer    | Technology                             |
-|----------|----------------------------------------|
-| Mobile   | React Native (Expo or bare CLI)        |
-| Backend  | Node.js + Express + TypeScript         |
-| ML       | Python + FastAPI + custom model        |
-| Database | MongoDB + Redis                        |
-| Infra    | Docker Compose (dev) / Kubernetes (prod) |
+| Layer     | Technology                                      |
+|-----------|-------------------------------------------------|
+| Mobile    | React Native (Expo or bare CLI)                 |
+| Backend   | Node.js + Express + TypeScript                  |
+| ML        | Python + FastAPI + RAG + SEA-LION (via Ollama / AISG API) |
+| Embedding | `paraphrase-multilingual-MiniLM-L12-v2`         |
+| Vector DB | ChromaDB (embedded in ml-service)               |
+| Database  | MongoDB + Redis                                 |
+| Infra     | Docker Compose (dev) / Kubernetes (prod)        |
+
+---
+
+## Project Structure
+
+```
+Dilly-Dell-E/
+├── docs/
+│   ├── ARCHITECTURE.md           # System design + ADRs
+│   └── snippets/                 # Stubs copied by init.sh
+├── ml/                           # ML service — committed
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── app/
+│   │   ├── main.py               # FastAPI: /health + /query
+│   │   ├── schemas.py            # QueryRequest / QueryResponse
+│   │   ├── llm/
+│   │   │   ├── base.py           # Shared LLMClient interface
+│   │   │   ├── ollama_client.py  # Ollama (self-hosted fallback)
+│   │   │   ├── api_client.py     # AISG API (primary)
+│   │   │   └── fallback_client.py # Tries API first, auto-falls to Ollama
+│   │   └── rag/
+│   │       ├── pipeline.py       # Retrieve → prompt → generate
+│   │       ├── retriever.py      # ChromaDB query
+│   │       └── loader.py         # Ingest ml/data/ at startup
+│   └── data/
+│       └── care_resources.jsonl  # Knowledge base (Care Corner, AIC, etc.)
+├── k8s/                          # Kubernetes manifests — committed
+│   ├── namespace.yaml
+│   ├── backend/
+│   ├── ml-service/
+│   └── ollama/                   # Always-on Ollama fallback pod
+├── scripts/init.sh               # Run once after cloning
+├── .env.example                  # All required env vars with comments
+├── docker-compose.yml            # Mongo + Redis + Ollama + ml-service
+└── Makefile                      # All commands
+
+# Generated by init.sh — gitignored, not in repo:
+├── mobile/                       # React Native (Expo or bare CLI)
+├── frontend/                     # Vite web app (optional)
+└── backend/                      # Express + TypeScript API
+```
 
 ---
 
@@ -47,71 +91,162 @@ We proposed to create a client-centered care navigation application built on con
 - Node.js 20+
 - Python 3.11+
 - Docker + Docker Compose
-- kubectl (for Kubernetes deploy)
+- [Ollama](https://ollama.com) (for local ML development)
+- kubectl (for Kubernetes deploy only)
 
-### First-time setup
+### 1. First-time repo setup
 
 ```bash
-# Clone, then run the init script once
 chmod +x scripts/init.sh
 make init
+# Prompts: choose Expo / React Native CLI / Vite / skip for frontend
+# Scaffolds backend/, copies stubs, creates .env from .env.example
 ```
 
-The script will:
-1. Prompt you to choose a frontend (Expo, React Native CLI, Vite, or skip)
-2. Scaffold `backend/` with Express + TypeScript + all dependencies
-3. Copy pre-written stubs (env validation, error handling, async handler)
-4. Create `.env` from `.env.example`
+Fill in your secrets:
+```bash
+nano .env   # set MONGO_URI, JWT_SECRET, LLM_API_KEY (optional)
+```
 
-### After init
+### 2. ML service — local dev (no Docker)
 
 ```bash
-# Fill in secrets
-nano .env
+cd ml
+python -m venv .venv
+source .venv/bin/activate       # fish: source .venv/bin/activate.fish
+pip install -r requirements.txt
+cd ..
 
-# Start everything (Mongo + Redis + ML service)
+# In a separate terminal — start Ollama
+ollama serve
+ollama pull aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct
+
+# Run the ML service with hot reload
+make ml-dev   # → http://localhost:8000
+```
+
+Test it:
+```bash
+curl http://localhost:8000/health
+
+curl -X POST http://localhost:8000/query \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "I need help finding dementia care services"}'
+```
+
+### 3. Full stack — Docker Compose
+
+```bash
 make docker-up
 
-# Start dev servers
+# First time: pull SEA-LION into the Ollama container (~5GB)
+docker exec -it $(docker ps -qf name=ollama) \
+  ollama pull aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct
+
 make dev
-# Backend at http://localhost:3001
-# ML service at http://localhost:8000
-# Mobile: Expo QR / RN Metro / Vite at localhost:5173
+# Backend  → http://localhost:3001
+# ML       → http://localhost:8000
+# Mobile   → Expo QR / RN Metro / Vite at :5173
+```
+
+### 4. Kubernetes deploy
+
+```bash
+# Optional: store AISG API key as a K8s secret
+kubectl create secret generic ml-secrets \
+  --from-literal=LLM_API_KEY=your-key \
+  -n dilly-dell-e
+
+make k8s-apply
+# Deploys: namespace → ollama → ml-service → backend
+
+# First time: pull the model into the Ollama pod
+kubectl exec -n dilly-dell-e deploy/ollama -- \
+  ollama pull aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct
+
+kubectl get pods -n dilly-dell-e   # all should be Running
+```
+
+Tear down:
+```bash
+make k8s-down
 ```
 
 ---
 
-## Project Structure
+## ML Service — How It Works
+
+Every `/query` request goes through this pipeline:
 
 ```
-Dilly-Dell-E/
-├── .claude/settings.json         # Claude Code permissions
-├── .github/                      # PR + issue templates
-├── docs/
-│   ├── ARCHITECTURE.md           # System design and ADRs
-│   └── snippets/                 # Stubs copied by init.sh
-├── ml/                           # ML inference service (committed)
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── app/
-│   │   ├── main.py               # FastAPI: /health + /predict
-│   │   ├── model.py              # Model loading + inference
-│   │   └── schemas.py            # Pydantic request/response types
-│   └── models/                   # Weights go here (gitignored)
-├── k8s/                          # Kubernetes manifests (committed)
-│   ├── namespace.yaml
-│   ├── backend/
-│   └── ml-service/
-├── scripts/init.sh               # Run once after cloning
-├── .env.example                  # All required env vars
-├── docker-compose.yml
-└── Makefile
-
-# Generated by init.sh — not in the repo:
-├── mobile/                       # React Native app (Expo or bare CLI)
-├── frontend/                     # Vite web app (optional)
-└── backend/                      # Express + TypeScript API
+User message
+  → Embed with paraphrase-multilingual-MiniLM-L12-v2
+  → Retrieve top-5 matching care resource chunks from ChromaDB
+  → Build prompt: system instructions + retrieved context + user message
+  → Call AISG API (primary)
+      ↳ on any failure → fall back to self-hosted Ollama automatically
+  → Return { answer, sources }
 ```
+
+### Adding knowledge base entries
+
+Edit `ml/data/care_resources.jsonl` — one JSON object per line:
+
+```json
+{"id": "11", "title": "Service Name", "content": "Full description, contact info, eligibility...", "url": "https://..."}
+```
+
+Restart `make ml-dev` or the ml-service container to rebuild the ChromaDB index.
+
+### Switching the SEA-LION model
+
+In `.env`:
+```bash
+# Current default (v3, instruction-tuned, faster)
+OLLAMA_MODEL=aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct
+
+# Alternatively (v3.5, reasoning-capable, more thorough)
+OLLAMA_MODEL=aisingapore/Llama-SEA-LION-v3.5-8B-R
+```
+
+Restart the service after changing. The `-R` (Reasoning) variant thinks through complex care queries before answering — better quality but slower.
+
+---
+
+## Available Commands
+
+```bash
+make init           # Scaffold backend + choose frontend (run once)
+make dev            # Start backend + frontend in watch mode
+make build          # Production build (backend)
+make lint           # TypeScript type-check
+
+make docker-up      # Start Mongo + Redis + Ollama + ml-service
+make docker-down    # Stop all Docker services
+
+make ml-dev         # Run ML service locally (requires ml/.venv)
+
+make build-images   # Build Docker images for backend + ml-service
+make push-images    # Push images to $REGISTRY
+
+make k8s-apply      # Deploy to Kubernetes (namespace + ollama + ml-service + backend)
+make k8s-down       # Tear down all Kubernetes resources
+```
+
+---
+
+## Environment Variables
+
+Key variables in `.env` (see `.env.example` for full list):
+
+| Variable | Purpose |
+|---|---|
+| `ML_SERVICE_URL` | Backend → ML service URL (`http://localhost:8000` locally, `http://ml-service:8000` in Docker/K8s) |
+| `LLM_API_BASE_URL` | AISG API endpoint (primary LLM) |
+| `LLM_API_KEY` | AISG API key — leave blank to use Ollama only |
+| `LLM_MODEL` | Model name for the AISG API |
+| `OLLAMA_BASE_URL` | Ollama server URL (`http://localhost:11434` locally, `http://ollama:11434` in Docker/K8s) |
+| `OLLAMA_MODEL` | Ollama model tag (SEA-LION variant to use) |
 
 ---
 
@@ -125,4 +260,4 @@ Dilly-Dell-E/
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

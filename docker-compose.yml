@@ -23,15 +23,31 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   ml-service:
     build:
       context: ./ml
     ports:
       - "8000:8000"
-    volumes:
-      - ./ml/models:/app/models
     environment:
-      - MODEL_PATH=/app/models/model.onnx
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-sea-lion-v3-instruct}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct}
+    depends_on:
+      - ollama
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -41,3 +57,4 @@ services:
 volumes:
   mongo_data:
   redis_data:
+  ollama_data:

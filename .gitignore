@@ -25,6 +25,9 @@ ml/models/*.onnx
 ml/models/*.pkl
 ml/models/*.h5
 
+# ML Python virtual environment
+ml/.venv/
+
 # Claude Code personal overrides — gitignored intentionally
 CLAUDE.local.md
 .claude/settings.local.json

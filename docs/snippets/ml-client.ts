@@ -1,17 +1,22 @@
 // Copy to: backend/src/services/mlClient.ts
 import { env } from '../config/env';
 
-export interface PredictRequest {
-  input: string; // Replace with your actual input fields
+export interface QueryRequest {
+  message: string;
 }
 
-export interface PredictResponse {
-  result: unknown;
-  confidence?: number;
+export interface Source {
+  title: string;
+  url?: string;
 }
 
-export async function predict(payload: PredictRequest): Promise<PredictResponse> {
-  const res = await fetch(`${env.ML_SERVICE_URL}/predict`, {
+export interface QueryResponse {
+  answer: string;
+  sources: Source[];
+}
+
+export async function queryML(payload: QueryRequest): Promise<QueryResponse> {
+  const res = await fetch(`${env.ML_SERVICE_URL}/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -23,5 +28,5 @@ export async function predict(payload: PredictRequest): Promise<PredictResponse>
     throw err;
   }
 
-  return res.json() as Promise<PredictResponse>;
+  return res.json() as Promise<QueryResponse>;
 }
