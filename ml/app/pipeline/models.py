@@ -36,7 +36,7 @@ class EscalationResult:
 class IntentResult:
     begin_schemes_workflow: bool
     display_schemes: bool
-    intent_confidence: float             # max score; < 0.4 triggers "Confused" emotion
+    intent_confidence: float             # max score; < 0.5 triggers "Confused" emotion
 
 @dataclass
 class ClassificationResult:
