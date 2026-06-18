@@ -47,11 +47,109 @@ Namespace: dilly-dell-e
 |-----------|------|---------|
 | Mobile | React Native + Expo | iOS / Android UI |
 | Backend | Express + TypeScript | REST API server |
-| ML Service | Python + FastAPI | Model inference (`/predict`) |
-| Database | MongoDB via Mongoose | Persistent storage |
+| **ML Service** | Python + FastAPI | Model inference + data pipelines |
+| **├─ Adapter** | Python + LLM | Multi-format data import + normalization |
+| **├─ Profile Builder** | MongoDB + Pydantic | Unified patient profiles |
+| **├─ Turn Orchestrator** | MongoDB + FastAPI | Conversation session management |
+| **├─ Voice Gateway** | FastAPI + Whisper | Audio input/output handling |
+| **├─ RAG Pipeline** | ChromaDB + Ollama/API | Care navigation Q&A |
+| **├─ QA Service** | MongoDB + LLM | Confidence gate + hallucination check |
+| **└─ Review Queue** | MongoDB + FastAPI | Human-in-the-loop review dashboard |
+| Database | MongoDB | Persistent storage (profiles, sessions, audits) |
+| Vector DB | ChromaDB | RAG embeddings + retrieval |
 | Cache | Redis | Session storage, rate limiting |
+| LLM | Ollama (fallback) + API | SEA-LION v3.5, inference |
 | Infra (dev) | Docker Compose | Local service orchestration |
 | Infra (prod) | Kubernetes | Container orchestration + scaling |
+
+## ML Service Architecture (FastAPI Namespaces)
+
+The ML service organizes data pipelines and voice AI into 6 namespaces:
+
+### Phase 1: Adapter (`/adapter`)
+**Multi-format data import + semantic field mapping**
+- Accepts: CSV, Excel, JSON, fillable PDF forms
+- Uses LLM (SEA-LION) to map agency field names to unified schema
+- Output: Normalized patient records (name, dob, age, contact, emotion, problem_classes, special_case)
+- Files: `ml/app/adapters/`, `ml/app/llm/`
+
+### Phase 2: Profile Builder (`/profiles`)
+**Unified patient profile storage + retrieval**
+- Stores normalized records in MongoDB
+- Simple merge: latest agency data wins
+- Used by Voice Gateway for patient context
+- Files: `ml/app/profile_builder/`
+
+### Phase 3: Turn Orchestrator + Voice Gateway (`/voice`)
+**Conversation session management + voice I/O**
+- Sessions: Store conversation history, patient context
+- Turns: Process user input → RAG response → store history
+- Fetches patient context from Profile Builder
+- Integrates: Adapter → Profiles → RAG → Voice responses
+- Files: `ml/app/turn_orchestrator/`
+
+### Phase 4: RAG Pipeline (`/query`, `/query-audio`, `/predict`)
+**Care navigation Q&A with patient context**
+- ChromaDB vector store for care resources
+- Ollama (fallback) + LLM API (primary) for inference
+- Retrieves relevant sources, generates personalized responses
+- Files: `ml/app/rag/`, `ml/app/llm/`
+
+### Phase 5: QA Namespace (`/qa`)
+**Quality assurance + human-in-the-loop review**
+
+**Confidence Gate:**
+- HIGH (≥0.8): No review needed
+- MEDIUM (0.6-0.79): Optional review
+- LOW (<0.6): Escalate to review
+
+**Hallucination Check:**
+- Compare response claims against retrieved sources
+- Calculate % of unmatched sentences
+- >30% unmatched = likely hallucination
+
+**Escalation:**
+- Low confidence OR hallucination detected → review_queue
+- Human reviewer dashboard (`/qa/reviews/pending`)
+
+**Audit Log:**
+- Every interaction logged with metadata
+- Tracks review actions for compliance/bias detection
+
+Files: `ml/app/qa_service/`
+
+---
+
+## Data Flow: End-to-End Voice Interaction
+
+```
+User (mobile audio)
+    ↓ [transcribed via Whisper]
+    ↓
+POST /voice/turn
+    ├─ TurnOrchestratorService (session management)
+    ├─ ProfileService (fetch patient context)
+    └─ RAGPipeline (query with context + retrieve sources)
+    ↓
+POST /qa/check-response
+    ├─ Confidence Gate (classify: high/medium/low)
+    ├─ Hallucination Check (compare vs sources)
+    └─ Escalation Decision (needs_review?)
+    ↓
+If needs_review:
+    └─ POST /qa/escalate → review_queue
+        ├─ Human reviewer GET /qa/reviews/pending
+        ├─ Review action (approve/reject/modify)
+        └─ Audit logged
+    ↓
+Response → POST /qa/log-interaction (audit trail)
+    ↓
+Return to mobile (synthesize to audio)
+    ↓
+User (mobile audio output)
+```
+
+---
 
 ## Key Decisions
 

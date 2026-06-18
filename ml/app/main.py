@@ -23,6 +23,9 @@ from .profile_builder import routes as profile_routes
 from .turn_orchestrator.service import TurnOrchestratorService
 from .turn_orchestrator.orchestrator import VoiceOrchestrator
 from .turn_orchestrator import routes as voice_routes
+from .qa_service.qa_service import QAService
+from .qa_service.review_service import ReviewQueueService
+from .qa_service import routes as qa_routes
 from .schemas import PredictRequest, PredictResponse, QueryRequest, QueryResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +81,11 @@ async def lifespan(app: FastAPI):
     )
     voice_routes.init_orchestrator(state["voice_orchestrator"])
 
+    # Initialize QA services
+    state["qa_service"] = QAService(mongo_uri=mongo_uri)
+    state["review_service"] = ReviewQueueService(mongo_uri=mongo_uri)
+    qa_routes.init_qa_services(state["qa_service"], state["review_service"])
+
     yield
     state.clear()
 
@@ -87,6 +95,7 @@ app = FastAPI(title="Dilly-Dell-E ML Service", lifespan=lifespan)
 # Register routers
 app.include_router(profile_routes.router)
 app.include_router(voice_routes.router)
+app.include_router(qa_routes.router)
 
 
 @app.get("/health")
