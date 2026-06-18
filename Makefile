@@ -91,8 +91,9 @@ ml-dev:
 		cd ml && .venv/Scripts/uvicorn app.main:app --reload --port 8000; \
 	elif [ "$$(uname)" = "Darwin" ]; then \
 		brew install ffmpeg; \
+		brew install tesseract; \
 		cd ml && .venv/bin/uvicorn app.main:app --reload --port 8000; \
 	else \
-		sudo apt update && sudo apt install ffmpeg -y; \
+		sudo apt update && sudo apt install ffmpeg -y && sudo apt install tesseract-ocr -y; \
 		cd ml && .venv/bin/uvicorn app.main:app --reload --port 8000; \
 	fi

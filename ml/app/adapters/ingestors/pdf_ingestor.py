@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 try:
     import pdfplumber
 except ImportError:
@@ -11,14 +11,17 @@ except ImportError:
     PyPDF2 = None
 
 try:
-    import pytesseract
-    from PIL import Image
-    TESSERACT_AVAILABLE = True
+    from paddleocr import PaddleOCR
+    PADDLEOCR_AVAILABLE = True
 except ImportError:
-    TESSERACT_AVAILABLE = False
-    pytesseract = None
+    PADDLEOCR_AVAILABLE = False
+    PaddleOCR = None
+    logger.warning("paddleocr not installed - OCR features disabled")
+
+try:
+    from PIL import Image
+except ImportError:
     Image = None
-    logger.warning("pytesseract not available - OCR features disabled")
 
 from .base import Ingestor
 
@@ -130,53 +133,62 @@ class PDFFormIngestor(Ingestor):
         self, page, page_num: int
     ) -> Dict[str, Any]:
         """
-        Extract text from page using OCR (Tesseract).
+        Extract text from page using PaddleOCR.
 
-        Identifies:
-        - Text blocks (fields that were filled)
-        - Checkbox markers (X, checkmark, filled box)
-        - Handwritten text
+        PaddleOCR is better for:
+        - Handwritten text in form fields
+        - Text in boxes
+        - Multi-language support (English, Mandarin, Malay, Tamil)
+        - No external binary required
         """
         page_data = {}
 
-        if not TESSERACT_AVAILABLE:
+        if not PADDLEOCR_AVAILABLE:
             logger.error(
-                "Tesseract not available. Install it with: "
-                "macOS: brew install tesseract, "
-                "Linux: sudo apt-get install tesseract-ocr"
+                "PaddleOCR not available. Install with: "
+                "pip install paddleocr"
             )
             return {}
 
         try:
-            # Convert page to image for OCR
+            # Convert page to image
             image = page.to_image()
-            img_bytes = image.original.tobytes()
-            img = Image.frombytes(
-                image.original.mode,
-                image.original.size,
-                img_bytes,
-            )
+            img_path = image.original
 
-            # Extract text with OCR
-            ocr_text = pytesseract.image_to_string(img)
+            # Initialize PaddleOCR (auto-downloads model on first run)
+            # Supports: English, Chinese, Japanese, Korean, etc.
+            ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
-            # Extract detailed text information with bounding boxes
-            data = pytesseract.image_to_data(img, output_type="dict")
+            # Run OCR - returns list of [[text, confidence], ...]
+            result = ocr.ocr(img_path, cls=True)
 
-            # Group text by vertical position (likely form fields)
-            fields = self._group_text_by_position(data)
+            if not result or not result[0]:
+                logger.warning(f"PaddleOCR returned no results for page {page_num}")
+                return {}
 
+            # Extract text and group by position (vertical grouping for form fields)
+            fields = self._group_paddle_results_by_position(result[0])
+
+            # Collect all text as fallback
+            all_text = []
+            for line in result[0]:
+                if line and line[0]:  # text exists
+                    all_text.append(line[0])
+
+            # Add fields to page data
             for field_name, field_value in fields.items():
                 page_data[field_name] = field_value
 
-            # Also add raw page text as fallback
-            if ocr_text.strip():
-                page_data["page_text"] = ocr_text.strip()
+            # Add raw text as fallback
+            if all_text:
+                page_data["page_text"] = " ".join(all_text)
 
             page_data["page_number"] = page_num + 1
 
+            logger.info(f"PaddleOCR extracted {len(fields)} fields from page {page_num + 1}")
+
         except Exception as e:
-            logger.warning(f"Error during OCR extraction on page {page_num}: {e}")
+            logger.error(f"Error during PaddleOCR extraction on page {page_num}: {e}")
 
         return page_data if page_data else {}
 
@@ -209,6 +221,58 @@ class PDFFormIngestor(Ingestor):
                     fields[field_name] = field_value
 
                 current_field = [text]
+                current_y = y
+
+        # Add last field
+        if current_field:
+            field_value = " ".join(current_field)
+            field_name = f"field_{len(fields)}"
+            fields[field_name] = field_value
+
+        return fields
+
+    def _group_paddle_results_by_position(self, paddle_results: List) -> Dict[str, str]:
+        """
+        Group PaddleOCR results by vertical position to identify form fields.
+
+        PaddleOCR returns: [[[x1,y1], [x2,y2], [x3,y3], [x4,y4]], 'text', confidence]
+
+        Text on the same horizontal line is grouped together as one field.
+        """
+        fields = {}
+        current_field = []
+        current_y = None
+        y_threshold = 15  # pixels - consider text on same line if within threshold
+
+        for item in paddle_results:
+            if not item or len(item) < 2:
+                continue
+
+            text = item[1]  # Text content
+            confidence = item[2] if len(item) > 2 else 0.0
+
+            if not text or not text.strip() or confidence < 0.3:
+                continue
+
+            # Get Y coordinate from bounding box (top-left Y)
+            bbox = item[0]  # List of [x, y] coordinates
+            if bbox and len(bbox) > 0:
+                y = bbox[0][1]  # Y coordinate of first point
+            else:
+                y = 0
+
+            # Group text on same horizontal line
+            if current_y is None or abs(y - current_y) <= y_threshold:
+                current_field.append(text.strip())
+                current_y = y
+            else:
+                # New field detected
+                if current_field:
+                    field_value = " ".join(current_field)
+                    field_name = f"field_{len(fields)}"
+                    fields[field_name] = field_value
+
+                current_field = [text.strip()]
                 current_y = y
 
         # Add last field
