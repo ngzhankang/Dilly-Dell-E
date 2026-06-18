@@ -13,7 +13,7 @@ from sentence_transformers import SentenceTransformer
 from .llm.api_client import AIAPIClient
 from .llm.fallback_client import FallbackLLMClient
 from .llm.ollama_client import OllamaClient
-from .model import predict as run_predict
+# from .model import predict as run_predict
 from .rag.loader import load_knowledge_base
 from .rag.pipeline import RAGPipeline
 from .rag.retriever import Retriever
