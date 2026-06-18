@@ -86,4 +86,13 @@ k8s-down:
 # ── ML service (local Python, no Docker) ──────────────────────────────
 
 ml-dev:
-	@cd ml && .venv/bin/uvicorn app.main:app --reload --port 8000
+	@if [ "$(OS)" = "Windows_NT" ]; then \
+		choco install ffmpeg; \
+		cd ml && .venv/Scripts/uvicorn app.main:app --reload --port 8000; \
+	elif [ "$$(uname)" = "Darwin" ]; then \
+		brew install ffmpeg; \
+		cd ml && .venv/bin/uvicorn app.main:app --reload --port 8000; \
+	else \
+		sudo apt update && sudo apt install ffmpeg -y; \
+		cd ml && .venv/bin/uvicorn app.main:app --reload --port 8000; \
+	fi

@@ -1,3 +1,4 @@
+from email.mime import message
 import logging
 import os
 import tempfile
@@ -7,14 +8,16 @@ import chromadb
 import whisper
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from sentence_transformers import SentenceTransformer
+# from transformers import pipeline
 
 from .llm.api_client import AIAPIClient
 from .llm.fallback_client import FallbackLLMClient
 from .llm.ollama_client import OllamaClient
+from .model import predict as run_predict
 from .rag.loader import load_knowledge_base
 from .rag.pipeline import RAGPipeline
 from .rag.retriever import Retriever
-from .schemas import QueryRequest, QueryResponse
+from .schemas import PredictRequest, PredictResponse, QueryRequest, QueryResponse
 
 logging.basicConfig(level=logging.INFO)
 state: dict = {}
@@ -24,6 +27,9 @@ state: dict = {}
 async def lifespan(app: FastAPI):
     embedder = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
     whisper_model = whisper.load_model("base")
+
+    # sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+    # state["sentiment_analyzer"] = sentiment_analyzer
 
     chroma = chromadb.Client()
     collection = chroma.get_or_create_collection("care_resources")
@@ -68,8 +74,10 @@ async def query(request: QueryRequest):
     if not request.message or not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     result = await state["pipeline"].query(request.message)
+    # sentiment = state["sentiment_analyzer"](request.message)[0]
+    # result["sentiment"] = sentiment
     return QueryResponse(**result)
-
+    
 
 @app.post("/query-audio", response_model=QueryResponse)
 async def query_audio(file: UploadFile = File(...)):
@@ -95,7 +103,7 @@ async def query_audio(file: UploadFile = File(...)):
         logging.info("Transcribing audio file: %s", file.filename)
         transcription = state["whisper_model"].transcribe(tmp_path, language="en")
         message = transcription.get("text", "").strip()
-        print(message,"<<<<")
+        print(message, "message!")
 
         if not message:
             raise HTTPException(status_code=400, detail="Transcription resulted in empty text")
@@ -103,7 +111,9 @@ async def query_audio(file: UploadFile = File(...)):
         logging.info("Transcribed text: %s", message)
 
         # Pass transcribed text to RAG pipeline
+        # sentiment = state["sentiment_analyzer"](message)[0]
         result = await state["pipeline"].query(message)
+        # result["sentiment"] = sentiment
         return QueryResponse(**result)
 
     except HTTPException:
@@ -115,3 +125,11 @@ async def query_audio(file: UploadFile = File(...)):
         # Clean up temp file
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+@app.post("/predict", response_model=PredictResponse)
+async def predict(request: PredictRequest) -> PredictResponse:
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="text cannot be empty")
+    result = await run_predict(request.text, request.session_id)
+    return PredictResponse(**result)
