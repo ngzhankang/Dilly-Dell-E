@@ -1,29 +1,10 @@
 import logging
-from typing import List, Dict, Any, Tuple
-try:
-    import pdfplumber
-except ImportError:
-    pdfplumber = None
+from typing import List, Dict, Any
 
 try:
     import PyPDF2
 except ImportError:
     PyPDF2 = None
-
-try:
-    from paddleocr import PaddleOCR
-    PADDLEOCR_AVAILABLE = True
-except ImportError:
-    PADDLEOCR_AVAILABLE = False
-    PaddleOCR = None
-    logger.warning("paddleocr not installed - OCR features disabled")
-
-try:
-    from PIL import Image
-    import numpy as np
-except ImportError:
-    Image = None
-    np = None
 
 from .base import Ingestor
 
@@ -31,65 +12,40 @@ logger = logging.getLogger(__name__)
 
 
 class PDFFormIngestor(Ingestor):
-    """Extract data from filled PDF forms (checkboxes, text fields, handwriting)."""
+    """Extract data from fillable PDF forms (AcroForm only)."""
 
     async def parse(self, file_path: str) -> List[Dict[str, Any]]:
         """
-        Parse a filled PDF form and extract field data.
+        Parse a fillable PDF form and extract field data.
 
         Supports:
         - Filled text fields
         - Ticked checkboxes
-        - Handwritten text (via OCR)
         - Radio buttons and dropdowns
+
+        Note: Only works with fillable PDFs (AcroForm).
+        Scanned/handwritten PDFs are not supported.
         """
-        if not pdfplumber:
-            raise ImportError(
-                "pdfplumber is required for PDF parsing. "
-                "Install with: pip install pdfplumber"
-            )
-
         try:
-            records = []
+            form_data = self._extract_form_fields(file_path)
 
-            with pdfplumber.open(file_path) as pdf:
-                # Extract form fields (acroform if available)
-                form_data = self._extract_form_fields(file_path, pdf)
+            if not form_data:
+                raise ValueError(
+                    "No form fields found in PDF. "
+                    "This PDF may be a scanned image rather than a fillable form."
+                )
 
-                if form_data:
-                    # If PDF has form fields (AcroForm), use those
-                    logger.info(f"Extracted {len(form_data)} form fields from PDF")
-                    records.append(form_data)
-                else:
-                    # Fallback: OCR-based extraction
-                    logger.info(
-                        "No form fields found, attempting OCR-based extraction..."
-                    )
-                    # Initialize PaddleOCR once for all pages (more efficient)
-                    ocr = None
-                    if PADDLEOCR_AVAILABLE:
-                        ocr = PaddleOCR(use_angle_cls=True, lang='en')
-
-                    for page_num, page in enumerate(pdf.pages):
-                        page_data = await self._extract_page_with_ocr(
-                            page, page_num, ocr
-                        )
-                        if page_data:
-                            records.append(page_data)
-
-            if not records:
-                raise ValueError("No data could be extracted from PDF")
-
-            return records
+            logger.info(f"Extracted {len(form_data)} form fields from PDF")
+            return [form_data]
 
         except Exception as e:
             raise ValueError(f"Failed to parse PDF form: {str(e)}")
 
-    def _extract_form_fields(self, file_path: str, pdf) -> Dict[str, Any]:
+    def _extract_form_fields(self, file_path: str) -> Dict[str, Any]:
         """
-        Extract AcroForm fields from PDF if they exist.
+        Extract AcroForm fields from fillable PDF.
 
-        This handles:
+        Handles:
         - Text input fields
         - Checkbox values
         - Radio button selections
@@ -97,13 +53,13 @@ class PDFFormIngestor(Ingestor):
         """
         form_data = {}
 
-        try:
-            if not PyPDF2:
-                logger.warning(
-                    "PyPDF2 not installed, skipping AcroForm extraction"
-                )
-                return {}
+        if not PyPDF2:
+            raise ImportError(
+                "PyPDF2 is required for PDF form extraction. "
+                "Install with: pip install PyPDF2"
+            )
 
+        try:
             with open(file_path, "rb") as f:
                 reader = PyPDF2.PdfReader(f)
 
@@ -132,221 +88,8 @@ class PDFFormIngestor(Ingestor):
 
         except Exception as e:
             logger.warning(f"Error extracting AcroForm fields: {e}")
-            return {}
 
-        return form_data if form_data else {}
-
-    async def _extract_page_with_ocr(
-        self, page, page_num: int, ocr=None
-    ) -> Dict[str, Any]:
-        """
-        Extract text from page using PaddleOCR.
-
-        PaddleOCR is better for:
-        - Handwritten text in form fields
-        - Text in boxes
-        - Multi-language support (English, Mandarin, Malay, Tamil)
-        - No external binary required
-
-        Args:
-            page: pdfplumber page object
-            page_num: page number (0-indexed)
-            ocr: PaddleOCR instance (reuse across pages for efficiency)
-        """
-        page_data = {}
-
-        if not PADDLEOCR_AVAILABLE or ocr is None:
-            logger.error(
-                "PaddleOCR not available. Install with: "
-                "pip install paddleocr paddlepaddle"
-            )
-            return {}
-
-        try:
-            # Convert page to image
-            image = page.to_image()
-            pil_image = image.original
-
-            # Convert PIL Image to numpy array (PaddleOCR requires numpy array or file path)
-            img_array = np.array(pil_image)
-
-            # Run OCR - returns list of [[[x,y], [x,y], [x,y], [x,y]], 'text', confidence]
-            # OCR instance is reused across pages for efficiency
-            result = ocr.ocr(img_array)
-
-            if not result or not result[0]:
-                logger.warning(f"PaddleOCR returned no results for page {page_num}")
-                return {}
-
-            # Log raw OCR results for debugging
-            logger.debug(f"PaddleOCR raw results for page {page_num + 1}: {len(result[0])} detections")
-            for idx in range(min(5, len(result[0]))):  # Log first 5 detections
-                item = result[0][idx]
-                if item and len(item) >= 2:
-                    try:
-                        text = item[1]
-                        confidence = item[2] if len(item) > 2 else 0.0
-                        logger.debug(f"  Detection {idx}: text='{text}' confidence={confidence:.2f}")
-                    except (IndexError, TypeError):
-                        logger.debug(f"  Detection {idx}: (unable to parse)")
-
-            # Extract text and group by position (vertical grouping for form fields)
-            fields = self._group_paddle_results_by_position(result[0])
-
-            # Collect all text as fallback
-            all_text = []
-            for line in result[0]:
-                if line and line[0]:  # text exists
-                    all_text.append(line[0])
-
-            # Add fields to page data
-            for field_name, field_value in fields.items():
-                page_data[field_name] = field_value
-
-            # Add raw text as fallback
-            if all_text:
-                page_data["page_text"] = " ".join(all_text)
-
-            page_data["page_number"] = page_num + 1
-
-            logger.info(f"PaddleOCR extracted {len(fields)} fields from page {page_num + 1}: {list(fields.keys())}")
-
-        except Exception as e:
-            logger.error(f"Error during PaddleOCR extraction on page {page_num}: {e}")
-
-        return page_data if page_data else {}
-
-    def _group_text_by_position(self, ocr_data: Dict) -> Dict[str, str]:
-        """
-        Group OCR text by vertical position to identify form fields.
-
-        Text on the same horizontal line is grouped together as one field.
-        """
-        fields = {}
-        current_field = []
-        current_y = None
-        y_threshold = 10  # pixels - consider text on same line if within threshold
-
-        for i, text in enumerate(ocr_data.get("text", [])):
-            if not text.strip():
-                continue
-
-            y = ocr_data.get("top", [0])[i]
-
-            # Check if this text is on the same line as previous
-            if current_y is None or abs(y - current_y) <= y_threshold:
-                current_field.append(text)
-                current_y = y
-            else:
-                # New field detected
-                if current_field:
-                    field_value = " ".join(current_field)
-                    field_name = f"field_{len(fields)}"
-                    fields[field_name] = field_value
-
-                current_field = [text]
-                current_y = y
-
-        # Add last field
-        if current_field:
-            field_value = " ".join(current_field)
-            field_name = f"field_{len(fields)}"
-            fields[field_name] = field_value
-
-        return fields
-
-    def _group_paddle_results_by_position(self, paddle_results: List) -> Dict[str, str]:
-        """
-        Group PaddleOCR results by vertical position to identify form fields.
-
-        PaddleOCR returns: [[[x1,y1], [x2,y2], [x3,y3], [x4,y4]], 'text', confidence]
-
-        Text on the same horizontal line is grouped together as one field.
-        """
-        fields = {}
-        current_field = []
-        current_y = None
-        y_threshold = 15  # pixels - consider text on same line if within threshold
-
-        for item in paddle_results:
-            if not item or len(item) < 2:
-                continue
-
-            text = item[1]  # Text content
-            confidence = item[2] if len(item) > 2 else 0.0
-
-            if not text or not text.strip():
-                continue
-
-            # Convert confidence to float and filter low confidence
-            try:
-                confidence = float(confidence)
-                if confidence < 0.3:
-                    continue
-            except (ValueError, TypeError):
-                # If confidence conversion fails, include anyway
-                pass
-
-            # Get Y coordinate from bounding box (top-left Y)
-            bbox = item[0]  # List of [x, y] coordinates
-            if bbox and len(bbox) > 0:
-                try:
-                    y = float(bbox[0][1])  # Y coordinate of first point (ensure it's float)
-                except (ValueError, TypeError, IndexError):
-                    y = 0.0
-            else:
-                y = 0.0
-
-            # Group text on same horizontal line
-            if current_y is None or abs(y - current_y) <= y_threshold:
-                current_field.append(text.strip())
-                current_y = y
-            else:
-                # New field detected
-                if current_field:
-                    field_value = " ".join(current_field)
-                    field_name = f"field_{len(fields)}"
-                    fields[field_name] = field_value
-
-                current_field = [text.strip()]
-                current_y = y
-
-        # Add last field
-        if current_field:
-            field_value = " ".join(current_field)
-            field_name = f"field_{len(fields)}"
-            fields[field_name] = field_value
-
-        return fields
-
-    def _detect_checkbox_status(self, image: Image.Image, x: int, y: int, w: int, h: int) -> bool:
-        """
-        Detect if a checkbox at given coordinates is ticked.
-
-        Looks for:
-        - Black marks (pen strokes)
-        - Filled regions
-        - Checkmark patterns
-        """
-        try:
-            # Crop checkbox region
-            bbox = (x, y, x + w, y + h)
-            checkbox_img = image.crop(bbox)
-
-            # Convert to grayscale
-            checkbox_gray = checkbox_img.convert("L")
-
-            # Count dark pixels (filled/marked)
-            pixels = list(checkbox_gray.getdata())
-            dark_pixel_count = sum(1 for p in pixels if p < 128)
-
-            # If > 30% of pixels are dark, checkbox is likely marked
-            threshold = len(pixels) * 0.3
-            return dark_pixel_count > threshold
-
-        except Exception as e:
-            logger.warning(f"Error detecting checkbox status: {e}")
-            return False
+        return form_data
 
 
 class PDFInterRAIIngestor(PDFFormIngestor):
