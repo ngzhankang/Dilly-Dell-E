@@ -25,6 +25,8 @@ You must understand that different agencies use different naming conventions and
 - "diagnosis", "diagnosis_code", "condition", "icd_code" might refer to: "problem_classes"
 - "mood", "emotional_state", "affect" refer to: "emotion"
 
+There may also be instances where in the agency's form, a list of codes mapped to their respective options are given. (i.e. 1=Never married, 2=Married, etc.) In such cases, you should map the field to the appropriate unified schema field and note that the value is a code that needs to be interpreted.
+
 Available target fields in our unified schema:
 - name (patient name)
 - dob (date of birth, format: YYYY-MM-DD)
@@ -79,9 +81,19 @@ Please map these fields to our unified schema."""
         logger.info(f"LLM mapping response for {agency_name}: {response[:200]}...")
 
         try:
-            mapping_result = json.loads(response)
+            # Handle markdown-formatted JSON responses (```json ... ```)
+            json_str = response.strip()
+            if json_str.startswith("```json"):
+                json_str = json_str[7:]  # Remove ```json
+            if json_str.startswith("```"):
+                json_str = json_str[3:]  # Remove ```
+            if json_str.endswith("```"):
+                json_str = json_str[:-3]  # Remove trailing ```
+            json_str = json_str.strip()
+
+            mapping_result = json.loads(json_str)
             return mapping_result
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response as JSON: {response}")
             raise ValueError(
                 f"LLM returned invalid JSON. Response: {response[:200]}"
