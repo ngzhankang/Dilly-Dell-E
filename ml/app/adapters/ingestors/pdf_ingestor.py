@@ -257,15 +257,27 @@ class PDFFormIngestor(Ingestor):
             text = item[1]  # Text content
             confidence = item[2] if len(item) > 2 else 0.0
 
-            if not text or not text.strip() or confidence < 0.3:
+            if not text or not text.strip():
                 continue
+
+            # Convert confidence to float and filter low confidence
+            try:
+                confidence = float(confidence)
+                if confidence < 0.3:
+                    continue
+            except (ValueError, TypeError):
+                # If confidence conversion fails, include anyway
+                pass
 
             # Get Y coordinate from bounding box (top-left Y)
             bbox = item[0]  # List of [x, y] coordinates
             if bbox and len(bbox) > 0:
-                y = bbox[0][1]  # Y coordinate of first point
+                try:
+                    y = float(bbox[0][1])  # Y coordinate of first point (ensure it's float)
+                except (ValueError, TypeError, IndexError):
+                    y = 0.0
             else:
-                y = 0
+                y = 0.0
 
             # Group text on same horizontal line
             if current_y is None or abs(y - current_y) <= y_threshold:
