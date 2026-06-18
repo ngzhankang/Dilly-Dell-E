@@ -20,6 +20,9 @@ from .rag.retriever import Retriever
 from .adapters.mapper import AdapterMapper
 from .profile_builder.service import ProfileService
 from .profile_builder import routes as profile_routes
+from .turn_orchestrator.service import TurnOrchestratorService
+from .turn_orchestrator.orchestrator import VoiceOrchestrator
+from .turn_orchestrator import routes as voice_routes
 from .schemas import PredictRequest, PredictResponse, QueryRequest, QueryResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -66,14 +69,24 @@ async def lifespan(app: FastAPI):
     state["profile_service"] = ProfileService(mongo_uri=mongo_uri)
     profile_routes.init_profile_service(state["profile_service"])
 
+    # Initialize turn orchestrator + voice gateway
+    state["turn_service"] = TurnOrchestratorService(mongo_uri=mongo_uri)
+    state["voice_orchestrator"] = VoiceOrchestrator(
+        turn_service=state["turn_service"],
+        profile_service=state["profile_service"],
+        rag_pipeline=state["pipeline"]
+    )
+    voice_routes.init_orchestrator(state["voice_orchestrator"])
+
     yield
     state.clear()
 
 
 app = FastAPI(title="Dilly-Dell-E ML Service", lifespan=lifespan)
 
-# Register profile builder routes
+# Register routers
 app.include_router(profile_routes.router)
+app.include_router(voice_routes.router)
 
 
 @app.get("/health")
