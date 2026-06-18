@@ -17,6 +17,7 @@ from .model import predict as run_predict
 from .rag.loader import load_knowledge_base
 from .rag.pipeline import RAGPipeline
 from .rag.retriever import Retriever
+from .adapters.mapper import AdapterMapper
 from .schemas import PredictRequest, PredictResponse, QueryRequest, QueryResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI):
     retriever = Retriever(collection=collection, embedder=embedder)
     state["pipeline"] = RAGPipeline(retriever=retriever, llm=llm)
     state["whisper_model"] = whisper_model
+    state["adapter_mapper"] = AdapterMapper(llm_client=llm)
     yield
     state.clear()
 
@@ -123,6 +125,71 @@ async def query_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to process audio: {str(exc)}")
     finally:
         # Clean up temp file
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@app.post("/adapter/import")
+async def import_agency_form(
+    file: UploadFile = File(...),
+    agency_name: str = "",
+) -> dict:
+    """Import and normalize agency form data using LLM field mapping."""
+    if not agency_name or not agency_name.strip():
+        raise HTTPException(status_code=400, detail="agency_name required")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    tmp_path = None
+    try:
+        # Get file extension to determine format
+        ext = file.filename.rsplit(".", 1)[-1].lower()
+        if not ext:
+            raise HTTPException(status_code=400, detail="File must have an extension")
+
+        if ext not in ["csv", "xlsx", "xls", "json"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format: {ext}. Supported: csv, xlsx, xls, json",
+            )
+
+        # Write uploaded file to temp location
+        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+            contents = await file.read()
+            if not contents:
+                raise HTTPException(status_code=400, detail="Uploaded file is empty")
+            tmp.write(contents)
+            tmp_path = tmp.name
+
+        # Use adapter mapper to import and normalize
+        mapper = state["adapter_mapper"]
+        result = await mapper.import_agency_data(
+            file_path=tmp_path,
+            agency_name=agency_name,
+            file_format=ext,
+        )
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Import failed"))
+
+        return {
+            "success": True,
+            "agency": result["agency"],
+            "records_imported": result["records_normalized"],
+            "mapping_confidence": result["mapping_confidence"],
+            "unmapped_fields": result.get("unmapped_fields", []),
+            "sample_record": result["records"][0] if result["records"] else None,
+            "records": result["records"],
+            "mapping_metadata": result.get("mapping_metadata", {}),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logging.error("Error importing agency data: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(exc)}")
+    finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
