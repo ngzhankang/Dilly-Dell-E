@@ -20,8 +20,10 @@ except ImportError:
 
 try:
     from PIL import Image
+    import numpy as np
 except ImportError:
     Image = None
+    np = None
 
 from .base import Ingestor
 
@@ -153,7 +155,10 @@ class PDFFormIngestor(Ingestor):
         try:
             # Convert page to image
             image = page.to_image()
-            img_path = image.original
+            pil_image = image.original
+
+            # Convert PIL Image to numpy array (PaddleOCR requires numpy array or file path)
+            img_array = np.array(pil_image)
 
             # Initialize PaddleOCR (auto-downloads model on first run)
             # use_angle_cls=True handles rotated text detection
@@ -161,7 +166,7 @@ class PDFFormIngestor(Ingestor):
             ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
             # Run OCR - returns list of [[[x,y], [x,y], [x,y], [x,y]], 'text', confidence]
-            result = ocr.ocr(img_path)
+            result = ocr.ocr(img_array)
 
             if not result or not result[0]:
                 logger.warning(f"PaddleOCR returned no results for page {page_num}")
