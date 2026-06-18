@@ -88,7 +88,7 @@ build/
 
 # Generated app folders — scaffolded by scripts/init.sh, not committed
 # frontend/
-backend/
+# backend/
 mobile/
 
 # ML model weights — too large for git; bake into image or mount via volume
