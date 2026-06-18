@@ -3,6 +3,7 @@ import tempfile
 from typing import Dict, Any, List
 from .ingestors.csv_ingestor import CSVIngestor
 from .ingestors.json_ingestor import JSONIngestor
+from .ingestors.pdf_ingestor import PDFFormIngestor, PDFInterRAIIngestor
 from .llm_field_mapper import LLMFieldMapper
 from ..llm.base import LLMClient
 
@@ -15,6 +16,8 @@ class AdapterMapper:
         self.field_mapper = LLMFieldMapper(llm_client)
         self.csv_ingestor = CSVIngestor()
         self.json_ingestor = JSONIngestor()
+        self.pdf_ingestor = PDFFormIngestor()
+        self.pdf_interrai_ingestor = PDFInterRAIIngestor()
 
     async def import_agency_data(
         self, file_path: str, agency_name: str, file_format: str
@@ -36,7 +39,7 @@ class AdapterMapper:
                 f"Starting import for {agency_name} (format: {file_format})"
             )
 
-            ingestor = self._get_ingestor(file_format)
+            ingestor = self._get_ingestor(file_format, agency_name)
             raw_records = await ingestor.parse(file_path)
             logger.info(f"Parsed {len(raw_records)} records from {agency_name}")
 
@@ -82,11 +85,19 @@ class AdapterMapper:
                 "agency": agency_name,
             }
 
-    def _get_ingestor(self, file_format: str):
+    def _get_ingestor(self, file_format: str, agency_name: str = ""):
         """Get appropriate ingestor for file format."""
-        if file_format.lower() in ["csv", "xlsx", "xls"]:
+        file_format = file_format.lower()
+
+        if file_format in ["csv", "xlsx", "xls"]:
             return self.csv_ingestor
-        elif file_format.lower() == "json":
+        elif file_format == "json":
             return self.json_ingestor
+        elif file_format == "pdf":
+            # Use specialized interRAI ingestor if applicable
+            if "interrai" in agency_name.lower() or "interRAI" in agency_name:
+                return self.pdf_interrai_ingestor
+            else:
+                return self.pdf_ingestor
         else:
             raise ValueError(f"Unsupported file format: {file_format}")

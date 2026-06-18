@@ -148,10 +148,10 @@ async def import_agency_form(
         if not ext:
             raise HTTPException(status_code=400, detail="File must have an extension")
 
-        if ext not in ["csv", "xlsx", "xls", "json"]:
+        if ext not in ["csv", "xlsx", "xls", "json", "pdf"]:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file format: {ext}. Supported: csv, xlsx, xls, json",
+                detail=f"Unsupported file format: {ext}. Supported: csv, xlsx, xls, json, pdf",
             )
 
         # Write uploaded file to temp location
