@@ -156,11 +156,12 @@ class PDFFormIngestor(Ingestor):
             img_path = image.original
 
             # Initialize PaddleOCR (auto-downloads model on first run)
+            # use_angle_cls=True handles rotated text detection
             # Supports: English, Chinese, Japanese, Korean, etc.
             ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
-            # Run OCR - returns list of [[text, confidence], ...]
-            result = ocr.ocr(img_path, cls=True)
+            # Run OCR - returns list of [[[x,y], [x,y], [x,y], [x,y]], 'text', confidence]
+            result = ocr.ocr(img_path)
 
             if not result or not result[0]:
                 logger.warning(f"PaddleOCR returned no results for page {page_num}")
