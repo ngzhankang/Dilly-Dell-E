@@ -43,6 +43,10 @@ class AdapterMapper:
             raw_records = await ingestor.parse(file_path)
             logger.info(f"Parsed {len(raw_records)} records from {agency_name}")
 
+            # Log raw extracted data for debugging
+            for idx, record in enumerate(raw_records[:2]):  # Log first 2 records
+                logger.info(f"Raw record {idx}: {dict(list(record.items())[:3])}...")  # First 3 fields
+
             if not raw_records:
                 return {
                     "success": False,

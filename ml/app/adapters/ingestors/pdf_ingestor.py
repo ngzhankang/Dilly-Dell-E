@@ -178,6 +178,18 @@ class PDFFormIngestor(Ingestor):
                 logger.warning(f"PaddleOCR returned no results for page {page_num}")
                 return {}
 
+            # Log raw OCR results for debugging
+            logger.debug(f"PaddleOCR raw results for page {page_num + 1}: {len(result[0])} detections")
+            for idx in range(min(5, len(result[0]))):  # Log first 5 detections
+                item = result[0][idx]
+                if item and len(item) >= 2:
+                    try:
+                        text = item[1]
+                        confidence = item[2] if len(item) > 2 else 0.0
+                        logger.debug(f"  Detection {idx}: text='{text}' confidence={confidence:.2f}")
+                    except (IndexError, TypeError):
+                        logger.debug(f"  Detection {idx}: (unable to parse)")
+
             # Extract text and group by position (vertical grouping for form fields)
             fields = self._group_paddle_results_by_position(result[0])
 
@@ -197,7 +209,7 @@ class PDFFormIngestor(Ingestor):
 
             page_data["page_number"] = page_num + 1
 
-            logger.info(f"PaddleOCR extracted {len(fields)} fields from page {page_num + 1}")
+            logger.info(f"PaddleOCR extracted {len(fields)} fields from page {page_num + 1}: {list(fields.keys())}")
 
         except Exception as e:
             logger.error(f"Error during PaddleOCR extraction on page {page_num}: {e}")
