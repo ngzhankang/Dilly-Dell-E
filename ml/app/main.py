@@ -18,6 +18,8 @@ from .rag.loader import load_knowledge_base
 from .rag.pipeline import RAGPipeline
 from .rag.retriever import Retriever
 from .adapters.mapper import AdapterMapper
+from .profile_builder.service import ProfileService
+from .profile_builder import routes as profile_routes
 from .schemas import PredictRequest, PredictResponse, QueryRequest, QueryResponse
 
 logging.basicConfig(level=logging.INFO)
@@ -58,11 +60,20 @@ async def lifespan(app: FastAPI):
     state["pipeline"] = RAGPipeline(retriever=retriever, llm=llm)
     state["whisper_model"] = whisper_model
     state["adapter_mapper"] = AdapterMapper(llm_client=llm)
+
+    # Initialize profile service
+    mongo_uri = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
+    state["profile_service"] = ProfileService(mongo_uri=mongo_uri)
+    profile_routes.init_profile_service(state["profile_service"])
+
     yield
     state.clear()
 
 
 app = FastAPI(title="Dilly-Dell-E ML Service", lifespan=lifespan)
+
+# Register profile builder routes
+app.include_router(profile_routes.router)
 
 
 @app.get("/health")
