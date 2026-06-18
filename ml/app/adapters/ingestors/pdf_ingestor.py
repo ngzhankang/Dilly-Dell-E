@@ -65,9 +65,14 @@ class PDFFormIngestor(Ingestor):
                     logger.info(
                         "No form fields found, attempting OCR-based extraction..."
                     )
+                    # Initialize PaddleOCR once for all pages (more efficient)
+                    ocr = None
+                    if PADDLEOCR_AVAILABLE:
+                        ocr = PaddleOCR(use_angle_cls=True, lang='en')
+
                     for page_num, page in enumerate(pdf.pages):
                         page_data = await self._extract_page_with_ocr(
-                            page, page_num
+                            page, page_num, ocr
                         )
                         if page_data:
                             records.append(page_data)
@@ -132,7 +137,7 @@ class PDFFormIngestor(Ingestor):
         return form_data if form_data else {}
 
     async def _extract_page_with_ocr(
-        self, page, page_num: int
+        self, page, page_num: int, ocr=None
     ) -> Dict[str, Any]:
         """
         Extract text from page using PaddleOCR.
@@ -142,13 +147,18 @@ class PDFFormIngestor(Ingestor):
         - Text in boxes
         - Multi-language support (English, Mandarin, Malay, Tamil)
         - No external binary required
+
+        Args:
+            page: pdfplumber page object
+            page_num: page number (0-indexed)
+            ocr: PaddleOCR instance (reuse across pages for efficiency)
         """
         page_data = {}
 
-        if not PADDLEOCR_AVAILABLE:
+        if not PADDLEOCR_AVAILABLE or ocr is None:
             logger.error(
                 "PaddleOCR not available. Install with: "
-                "pip install paddleocr"
+                "pip install paddleocr paddlepaddle"
             )
             return {}
 
@@ -160,12 +170,8 @@ class PDFFormIngestor(Ingestor):
             # Convert PIL Image to numpy array (PaddleOCR requires numpy array or file path)
             img_array = np.array(pil_image)
 
-            # Initialize PaddleOCR (auto-downloads model on first run)
-            # use_angle_cls=True handles rotated text detection
-            # Supports: English, Chinese, Japanese, Korean, etc.
-            ocr = PaddleOCR(use_angle_cls=True, lang='en')
-
             # Run OCR - returns list of [[[x,y], [x,y], [x,y], [x,y]], 'text', confidence]
+            # OCR instance is reused across pages for efficiency
             result = ocr.ocr(img_array)
 
             if not result or not result[0]:
