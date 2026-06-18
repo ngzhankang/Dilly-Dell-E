@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 import chromadb
 import whisper
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from sentence_transformers import SentenceTransformer
 # from transformers import pipeline
 
@@ -132,7 +132,7 @@ async def query_audio(file: UploadFile = File(...)):
 @app.post("/adapter/import")
 async def import_agency_form(
     file: UploadFile = File(...),
-    agency_name: str = "",
+    agency_name: str = Form(...),
 ) -> dict:
     """Import and normalize agency form data using LLM field mapping."""
     if not agency_name or not agency_name.strip():

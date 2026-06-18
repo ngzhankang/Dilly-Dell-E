@@ -10,9 +10,15 @@ try:
 except ImportError:
     PyPDF2 = None
 
-import pytesseract
-from PIL import Image
-import io
+try:
+    import pytesseract
+    from PIL import Image
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    TESSERACT_AVAILABLE = False
+    pytesseract = None
+    Image = None
+    logger.warning("pytesseract not available - OCR features disabled")
 
 from .base import Ingestor
 
@@ -43,7 +49,7 @@ class PDFFormIngestor(Ingestor):
 
             with pdfplumber.open(file_path) as pdf:
                 # Extract form fields (acroform if available)
-                form_data = self._extract_form_fields(pdf)
+                form_data = self._extract_form_fields(file_path, pdf)
 
                 if form_data:
                     # If PDF has form fields (AcroForm), use those
@@ -69,7 +75,7 @@ class PDFFormIngestor(Ingestor):
         except Exception as e:
             raise ValueError(f"Failed to parse PDF form: {str(e)}")
 
-    def _extract_form_fields(self, pdf) -> Dict[str, Any]:
+    def _extract_form_fields(self, file_path: str, pdf) -> Dict[str, Any]:
         """
         Extract AcroForm fields from PDF if they exist.
 
@@ -88,8 +94,7 @@ class PDFFormIngestor(Ingestor):
                 )
                 return {}
 
-            import io as py_io
-            with py_io.open(file_path, "rb") as f:
+            with open(file_path, "rb") as f:
                 reader = PyPDF2.PdfReader(f)
 
                 # Check if PDF has form fields
@@ -133,6 +138,14 @@ class PDFFormIngestor(Ingestor):
         - Handwritten text
         """
         page_data = {}
+
+        if not TESSERACT_AVAILABLE:
+            logger.error(
+                "Tesseract not available. Install it with: "
+                "macOS: brew install tesseract, "
+                "Linux: sudo apt-get install tesseract-ocr"
+            )
+            return {}
 
         try:
             # Convert page to image for OCR
