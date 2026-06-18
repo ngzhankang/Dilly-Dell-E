@@ -1,0 +1,48 @@
+Patient_ID,Patient_Name,Date_of_Birth,Gender,Contact_Number,Primary_Language,Date_of_Assessment,Admission_Date
+1,Lim Ah Kow,1940-06-15,M,91234567,Hokkien,2026-06-15,2026-06-10
+2,Chan Mei Ling,1938-03-22,F,92345678,Mandarin,2026-06-14,2026-05-20
+3,Muhammad Ali Hassan,1942-11-08,M,93456789,Malay,2026-06-12,2026-04-15
+4,Tan Siew Lim,1945-09-30,F,94567890,English,2026-06-13,2026-06-01
+5,Wong Yoke Fang,1948-01-14,F,95678901,Cantonese,2026-06-11,2026-05-25
+
+Cognitive_Status,Hearing_Ability,Vision_Ability,Speech_Clarity,Mood_Status,Behavior_Concern
+No impairment,No difficulty,No difficulty,Clear,Content,None
+Mild cognitive decline,Minimal difficulty,Moderate difficulty,Slightly slurred,Anxious,Restlessness
+Moderate dementia,Moderate difficulty,No difficulty,Clear,Sad,Wandering
+No impairment,No difficulty,Mild difficulty,Clear,Irritable,Aggression
+Severe dementia,Severe difficulty,Severe difficulty,Unclear,Withdrawn,None
+
+ADL_Eating,ADL_Toileting,ADL_Bathing,ADL_Dressing,ADL_Mobility,IADL_Medication_Management
+Independent,Independent,Supervision required,Some assistance,Some assistance,Dependent
+Dependent,Dependent,Dependent,Total assistance,Total assistance,Dependent
+Independent,Supervision required,Some assistance,Some assistance,Dependent,Supervision required
+Some assistance,Some assistance,Some assistance,Some assistance,Some assistance,Dependent
+Dependent,Dependent,Total assistance,Total assistance,Dependent,Dependent
+
+Primary_Diagnosis,Secondary_Diagnoses,Chronic_Conditions,Fall_Risk,Pressure_Ulcer_Risk,Nutritional_Status
+Dementia,Hypertension,Diabetes,High,Moderate,Adequate
+Stroke,Atrial Fibrillation,Parkinson's,Very High,High,Poor
+Parkinson's,Diabetes,Hypertension,High,Low,Adequate
+Heart Failure,Diabetes,COPD,Moderate,Moderate,Adequate
+Osteoporosis,Arthritis,Diabetes,Very High,Low,Adequate
+
+Medications_Count,Pain_Status,Sleep_Quality,Urinary_Continence,Bowel_Continence,Advance_Directive
+8,Moderate pain,Disrupted,Incontinence,Occasional incontinence,No
+12,No pain,Poor,Incontinence,Incontinence,DNR
+5,Mild pain,Fair,Continent,Continent,Yes
+10,Severe pain,Good,Occasional incontinence,Continent,No
+15,Mild pain,Poor,Incontinence,Continent,No
+
+Living_Arrangement,Caregiver_Availability,Service_Needs,Emergency_Contact,Next_of_Kin_Name,Next_of_Kin_Relationship
+Lives alone,No regular caregiver,Home nursing,Children,Lim Jie Ming,Son
+Lives with spouse,Spouse as caregiver,Respite care,Grandchild,Wong Jun Wei,Grandson
+Lives with children,Adult child as caregiver,Day centre,Adult child,Muhammad Karim,Son
+Lives alone,Home helper,Meal delivery,Neighbor,Tan Wei Lin,Daughter
+Lives with children,Multiple caregivers,Case management,Adult child,Wong Li Na,Daughter
+
+Assessment_Date,Facility_Name,Assessor_Name,Assessor_ID,Case_Manager,Contact_Email
+2026-06-15,Care Corner ICCP,Dr Singapore Lee,CC001,Sarah Tan,sarah.tan@carecorner.sg
+2026-06-14,AIC Bedok,Nurse Rosli Bin Osman,AIC002,Rahim Mohamed,rahim@aic.org.sg
+2026-06-12,Dementia Singapore Hub,Ms Sophia Goh,DS001,Michael Lim,michael@dementia.sg
+2026-06-13,CHAS Tampines,Dr Priya Reddy,CHAS003,Kiran Kumar,kiran@chas.sg
+2026-06-11,Home Care Associates,Nurse Amy Wong,HCA001,Lisa Chua,lisa@homecare.sg
