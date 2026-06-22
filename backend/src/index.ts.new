@@ -1,0 +1,57 @@
+import express from 'express';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import { env } from './config/env';
+import { errorHandler } from './middleware/errorHandler';
+import { adminRoutes } from './routes/admin/import';
+import { adapterRoutes } from './routes/adapter';
+import { profileRoutes } from './routes/profiles';
+import { voiceRoutes } from './routes/voice';
+import { qaRoutes } from './routes/qa';
+
+const app = express();
+
+app.use(cors({ origin: '*' }));
+app.use(express.json());
+
+// Connect to MongoDB
+mongoose.connect(env.MONGO_URI).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
+
+// Health check
+app.get('/health', async (_req, res) => {
+  try {
+    // Check ML service health
+    const mlResponse = await fetch(`${env.ML_SERVICE_URL}/health`, { timeout: 5000 });
+    const mlHealth = mlResponse.ok;
+
+    // Check MongoDB
+    const mongoHealth = mongoose.connection.readyState === 1;
+
+    res.json({
+      status: mongoHealth ? 'ok' : 'degraded',
+      mongodb: mongoHealth,
+      ml_service: mlHealth,
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Register API routes
+app.use('/api/admin', adminRoutes);
+app.use('/api/adapter', adapterRoutes);
+app.use('/api/profiles', profileRoutes);
+app.use('/api/voice', voiceRoutes);
+app.use('/api/qa', qaRoutes);
+
+app.use(errorHandler);
+
+app.listen(env.PORT, () => {
+  console.log(`Backend running on port ${env.PORT}`);
+  console.log(`ML Service URL: ${env.ML_SERVICE_URL}`);
+});
