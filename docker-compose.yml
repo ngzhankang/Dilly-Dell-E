@@ -41,6 +41,8 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - REDIS_URL=redis://redis:6379
       - LLM_API_BASE_URL=${LLM_API_BASE_URL}
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_MODEL=${LLM_MODEL:-sea-lion-v3-instruct}
@@ -48,6 +50,8 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-aisingapore/llama3.1-8b-cpt-sea-lionv3-instruct}
     depends_on:
       - ollama
+      - mongo
+      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
