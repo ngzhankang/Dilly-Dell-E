@@ -1,46 +1,32 @@
-app = "dilly-dell-e"
-primary_region = "sin"
+# fly.toml app configuration file generated for dilly-dell-e on 2026-06-23T14:45:23+08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'dilly-dell-e'
+primary_region = 'sin'
 
 [build]
-  builder = "docker"
-  dockerfile = "Dockerfile.fly"
+  dockerfile = './Dockerfile'
 
 [env]
-  NODE_ENV = "production"
+  NODE_ENV = 'production'
 
 [http_service]
   internal_port = 3001
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
-  processes = ["backend"]
 
-[processes]
-  backend = "cd backend && npm run build && npm start"
-
-[[services]]
-  protocol = "tcp"
-  internal_port = 3001
-
-  [services.concurrency]
-    type = "connections"
-    hard_limit = 1000
-    soft_limit = 800
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/health'
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
   memory_mb = 512
-
-[deploy]
-  release_command = "npm ci"
-
-[checks.http_check]
-  grace_period = "30s"
-  interval = "10s"
-  method = "GET"
-  path = "/health"
-  protocol = "http"
-  timeout = "5s"
-  tls_skip_verify = false
